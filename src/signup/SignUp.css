@@ -1,0 +1,24 @@
+.container{
+    max-width: 50%;
+    margin: 0 auto ;
+  }  
+.signupBtn{
+    width: 250px;
+    font-size: 18px !important;
+    text-transform: capitalize !important;
+    
+}
+
+.googleSignup{
+    width: 250px;
+    color: black !important;
+    background-color: #fff !important;
+    border: 1px solid gray !important;
+    text-transform: capitalize !important;
+    box-shadow: none !important;
+
+}
+.googleSignup img {
+    margin-right: 1rem;
+    width: 20px;
+}
