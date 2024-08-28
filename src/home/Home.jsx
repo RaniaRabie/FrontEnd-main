@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   Stack,
   TextField,
@@ -6,8 +6,7 @@ import {
   Box,
   Typography,
   FormControl,
-  InputLabel,
-  OutlinedInput,
+  Popover,
 } from "@mui/material";
 import axios from "axios";
 import { Link } from "react-router-dom";
@@ -24,8 +23,11 @@ export default function Home() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [passwordError, setPasswordError] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  // const [showPassword, setShowPassword] = useState(false);
   const [showValidation, setShowValidation] = useState(false);
+
+  const [loginError, setLoginError] = useState("");
+  const [loginErrorAnchorEl, setLoginErrorAnchorEl] = useState(null);
 
   // email validation
   const regEmail = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/; // Email validation
@@ -59,12 +61,14 @@ export default function Home() {
     };
   };
 
+  const [anchorEl, setAnchorEl] = useState(null);
+
   const handleNewPasswordChange = (e) => {
     const password = e.target.value;
     setNewPassword(password);
 
     const validation = validatePassword(password);
-    setValidations((prevValidations) => ({
+    const newValidations = {
       letter: validation.hasLowerCase,
       capital: validation.hasUpperCase,
       number: validation.hasNumber,
@@ -74,7 +78,15 @@ export default function Home() {
         password !== "" &&
         confirmPassword !== "" &&
         password === confirmPassword,
-    }));
+    };
+
+    setValidations(newValidations);
+
+    if (!newValidations.match || !newValidations.length) {
+      setAnchorEl(e.currentTarget);
+    } else {
+      setAnchorEl(null);
+    }
 
     setShowValidation(true);
   };
@@ -83,10 +95,18 @@ export default function Home() {
     const password = e.target.value;
     setConfirmPassword(password);
 
-    setValidations((prevValidations) => ({
-      ...prevValidations,
+    const newValidations = {
+      ...validations,
       match: newPassword !== "" && password !== "" && newPassword === password,
-    }));
+    };
+
+    setValidations(newValidations);
+
+    if (!newValidations.match) {
+      setAnchorEl(e.currentTarget);
+    } else {
+      setAnchorEl(null);
+    }
 
     setShowValidation(true);
   };
@@ -112,16 +132,21 @@ export default function Home() {
       );
       if (response.status === 200) {
         console.log("Login successful:", response.data);
+        setLoginError("");
+        setLoginErrorAnchorEl(null); // Hide popover on successful login
         if (rememberMe) {
           localStorage.setItem("email", email);
         } else {
           localStorage.removeItem("email");
         }
       } else {
-        console.error("Login failed:", response.data);
+        setLoginError("Invalid Email Or Password");
+        setLoginErrorAnchorEl(document.getElementById("login-popup")); // Show popover relative to login popup
       }
     } catch (error) {
       console.error("Error occurred during login:", error);
+      setLoginError("Incorrect Email Or Password.");
+      setLoginErrorAnchorEl(document.getElementById("login-popup")); // Show popover relative to login popup
     }
   };
 
@@ -148,10 +173,11 @@ export default function Home() {
         <div className="L">
           {isOpen && !isForgotPasswordOpen && !isSetNewPasswordOpen && (
             <div className="popup-overlay">
-              <div className="popup">
+              <div id="login-popup" className="popup">
                 <button onClick={togglePopup} className="close-popup-button">
                   &times;
                 </button>
+
                 <form onSubmit={handleSubmit} className="login-form">
                   <h2>Login</h2>
                   <div className="form-group">
@@ -204,6 +230,25 @@ export default function Home() {
                     </Link>
                   </div>
                 </form>
+                <Popover
+                  open={Boolean(loginErrorAnchorEl)}
+                  anchorEl={loginErrorAnchorEl}
+                  onClose={() => setLoginErrorAnchorEl(null)}
+                  anchorOrigin={{
+                    vertical: "top",
+                    horizontal: "center",
+                  }}
+                  transformOrigin={{
+                    vertical: "bottom",
+                    horizontal: "center",
+                  }}
+                >
+                  <Box p={2}>
+                    <Typography variant="body2" color="error">
+                      {loginError}
+                    </Typography>
+                  </Box>
+                </Popover>
               </div>
             </div>
           )}
@@ -244,6 +289,7 @@ export default function Home() {
                           {...field}
                           sx={{ width: "100%" }}
                           label="Email"
+                          required
                           variant="filled"
                           placeholder="e.g. example@gmail.com"
                           error={Boolean(errors.email)}
@@ -287,7 +333,7 @@ export default function Home() {
                       <TextField
                         variant="filled"
                         id="new-password"
-                        type={password}
+                        type="password"
                         value={newPassword}
                         onChange={handleNewPasswordChange}
                         label="New Password"
@@ -304,80 +350,100 @@ export default function Home() {
                       <TextField
                         variant="filled"
                         id="confirm-password"
-                        type={password}
+                        type="password"
                         value={confirmPassword}
                         onChange={handleConfirmPasswordChange}
                         label="Confirm Password"
                       />
                     </FormControl>
                   </div>
-                  {passwordError && (
-                    <Typography
-                      variant="body2"
-                      color="error"
-                      align="left"
-                      sx={{ mt: 1 }}
-                    >
-                      {passwordError}
-                    </Typography>
-                  )}
-                  {showValidation && (
-                    <Box
-                      mt={2}
-                      p={2}
-                      border={1}
-                      borderColor="grey.300"
-                      borderRadius="4px"
-                    >
-                      <Typography variant="subtitle1" sx={{ fontSize: "13px" }}>
-                        Password must contain the following:
-                      </Typography>
-                      <Typography
-                        variant="body2"
-                        color={validations.letter ? "green" : "red"}
-                        sx={{ fontSize: "13px" }}
-                      >
-                        {validations.letter ? "✔" : "✖"} A lowercase letter
-                      </Typography>
-                      <Typography
-                        variant="body2"
-                        color={validations.capital ? "green" : "red"}
-                        sx={{ fontSize: "13px" }}
-                      >
-                        {validations.capital ? "✔" : "✖"} A capital (uppercase)
-                        letter
-                      </Typography>
-                      <Typography
-                        variant="body2"
-                        color={validations.number ? "green" : "red"}
-                        sx={{ fontSize: "13px" }}
-                      >
-                        {validations.number ? "✔" : "✖"} A number
-                      </Typography>
-                      <Typography
-                        variant="body2"
-                        color={validations.specialChar ? "green" : "red"}
-                        sx={{ fontSize: "13px" }}
-                      >
-                        {validations.specialChar ? "✔" : "✖"} A special
-                        character
-                      </Typography>
-                      <Typography
-                        variant="body2"
-                        color={validations.length ? "green" : "red"}
-                        sx={{ fontSize: "13px" }}
-                      >
-                        {validations.length ? "✔" : "✖"} Minimum 10 characters
-                      </Typography>
-                      <Typography
-                        variant="body2"
-                        color={validations.match ? "green" : "red"}
-                        sx={{ fontSize: "13px" }}
-                      >
-                        {validations.match ? "✔" : "✖"} Passwords match
-                      </Typography>
+                  <Popover
+                    open={Boolean(anchorEl)}
+                    anchorEl={anchorEl}
+                    onClose={() => setAnchorEl(null)}
+                    anchorOrigin={{
+                      vertical: "bottom",
+                      horizontal: "left",
+                    }}
+                    transformOrigin={{
+                      vertical: "top",
+                      horizontal: "left",
+                    }}
+                  >
+                    <Box p={2}>
+                      {passwordError && (
+                        <Typography
+                          variant="body2"
+                          color="error"
+                          align="left"
+                          sx={{ mt: 1 }}
+                        >
+                          {passwordError}
+                        </Typography>
+                      )}
+                      {showValidation && (
+                        <Box
+                          mt={2}
+                          p={2}
+                          border={1}
+                          borderColor="grey.300"
+                          borderRadius="4px"
+                        >
+                          <Typography
+                            variant="subtitle1"
+                            sx={{ fontSize: "13px" }}
+                          >
+                            Password must contain the following:
+                          </Typography>
+                          <Typography
+                            variant="body2"
+                            color={validations.letter ? "green" : "red"}
+                            sx={{ fontSize: "13px" }}
+                          >
+                            {validations.letter ? "✔" : "✖"} A lowercase letter
+                          </Typography>
+                          <Typography
+                            variant="body2"
+                            color={validations.capital ? "green" : "red"}
+                            sx={{ fontSize: "13px" }}
+                          >
+                            {validations.capital ? "✔" : "✖"} A capital
+                            (uppercase) letter
+                          </Typography>
+                          <Typography
+                            variant="body2"
+                            color={validations.number ? "green" : "red"}
+                            sx={{ fontSize: "13px" }}
+                          >
+                            {validations.number ? "✔" : "✖"} A number
+                          </Typography>
+                          <Typography
+                            variant="body2"
+                            color={validations.specialChar ? "green" : "red"}
+                            sx={{ fontSize: "13px" }}
+                          >
+                            {validations.specialChar ? "✔" : "✖"} A special
+                            character
+                          </Typography>
+                          <Typography
+                            variant="body2"
+                            color={validations.length ? "green" : "red"}
+                            sx={{ fontSize: "13px" }}
+                          >
+                            {validations.length ? "✔" : "✖"} Minimum 10
+                            characters
+                          </Typography>
+                          <Typography
+                            variant="body2"
+                            color={validations.match ? "green" : "red"}
+                            sx={{ fontSize: "13px" }}
+                          >
+                            {validations.match ? "✔" : "✖"} Passwords match
+                          </Typography>
+                        </Box>
+                      )}
                     </Box>
-                  )}
+                  </Popover>
                   <div className="form-group">
                     <Button
                       type="submit"

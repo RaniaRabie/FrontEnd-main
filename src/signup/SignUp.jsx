@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
 import {
@@ -8,20 +8,12 @@ import {
   Snackbar,
   Stack,
   Typography,
-  FormControl,
-  InputLabel,
-  CircularProgress,
-  Select,
+  Autocomplete,
 } from "@mui/material";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
 import { useForm, Controller } from "react-hook-form";
-import { Visibility, VisibilityOff } from "@mui/icons-material";
-import IconButton from "@mui/material/IconButton";
-import OutlinedInput from "@mui/material/OutlinedInput";
-import InputAdornment from "@mui/material/InputAdornment";
 import "./SignUp.css";
-import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 // Show JSON data in console
@@ -42,58 +34,69 @@ const role = [
 ];
 
 export default function SignUp() {
-  const [countries, setCountries] = useState([]);
-  const [selectedCountry, setSelectedCountry] = useState("");
-  const [cities, setCities] = useState([]);
-  const [selectedCity, setSelectedCity] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState(false);
 
-  // Fetch the list of countries when the component mounts
+  // ---------- country, state api --------------
+  const [countries, setCountries] = useState([]);
+  const [states, setStates] = useState([]);
+  const [selectedCountry, setSelectedCountry] = useState(null);
+  const [selectedState, setSelectedState] = useState(null);
+
+  const { setValue } = useForm();
+
+  // Fetch countries on component mount
   useEffect(() => {
     const fetchCountries = async () => {
       try {
-        const response = await axios.get(
-          "https://countriesnow.space/api/v0.1/countries"
-        );
-        setCountries(response.data.data);
+        const response = await axios.get("https://countriesnow.space/api/v0.1/countries");
+        const countryOptions = response.data.data
+          .map((country) => ({
+            value: country.iso2,
+            label: country.country,
+          }))
+          .sort((a, b) => a.label.localeCompare(b.label));
+
+        setCountries(countryOptions);
       } catch (error) {
-        console.error("Error fetching countries:", error);
+        console.error("Failed to fetch countries:", error);
       }
     };
 
     fetchCountries();
   }, []);
 
-  // Fetch cities for the selected country
-  const handleCountryChange = async (event) => {
-    const country = event.target.value;
-    setSelectedCountry(country);
-    setSelectedCity(""); // Reset selected city
-    setLoading(true);
-    setCities([]); // Clear previous cities while loading new ones
+  // Fetch states when a country is selected
+  useEffect(() => {
+    const fetchStates = async (countryName) => {
+      try {
+        const response = await axios.post(
+          "https://countriesnow.space/api/v0.1/countries/states",
+          {
+            country: countryName, // Send the country name (string) as the identifier
+          }
+        );
 
-    try {
-      const response = await axios.post(
-        "https://countriesnow.space/api/v0.1/countries/cities",
-        { country }
-      );
-      setCities(response.data.data);
-    } catch (error) {
-      console.error("Error fetching cities:", error);
+        const stateOptions = response.data.data.states
+          .map((state) => ({
+            value: state.name,
+            label: state.name,
+          }))
+          .sort((a, b) => a.label.localeCompare(b.label));
+
+        setStates(stateOptions);
+      } catch (error) {
+        console.error("Failed to fetch states:", error);
+      }
+    };
+
+    if (selectedCountry) {
+      fetchStates(selectedCountry.label); // Send the country name (string)
+      setSelectedState(null); // Reset state selection when country changes
+      setValue("state", null); // Reset the state field in the form
     }
-
-    setLoading(false);
-  };
-
-  // Handle city selection
-  const handleCityChange = (event) => {
-    const city = event.target.value;
-    setSelectedCity(city);
-  };
-
-  const [open, setOpen] = useState(false);
-  // const [showPassword, setShowPassword] = useState(false);
-  // const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  }, [selectedCountry, setValue]);
+  // ---------- end of country, state api ----------
+  
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [validations, setValidations] = useState({
@@ -103,6 +106,9 @@ export default function SignUp() {
     specialChar: false,
     length: false,
     match: false,
+    name: false,
+    userName: false,
+    phoneNumber: false,
   });
   const [showValidation, setShowValidation] = useState(false);
 
@@ -163,37 +169,6 @@ export default function SignUp() {
       hasSpecialChar: specialChars.test(value),
       hasLength: value.length >= 10,
     };
-
-    const errors = [];
-    if (!validation.hasLowerCase) errors.push("at least one lowercase letter");
-    if (!validation.hasUpperCase) errors.push("at least one uppercase letter");
-    if (!validation.hasNumber) errors.push("at least one number");
-    if (!validation.hasSpecialChar)
-      errors.push("at least one special character");
-    if (!validation.hasLength) errors.push("at least 10 characters long");
-
-    // Additional restrictions
-    if (name) {
-      const nameParts = name.split(/\s+/);
-      for (let part of nameParts) {
-        if (part && value.toLowerCase().includes(part.toLowerCase())) {
-          errors.push("not contain any part of your name");
-          break;
-        }
-      }
-    }
-
-    if (userName && value.toLowerCase().includes(userName.toLowerCase())) {
-      errors.push("not contain your username");
-    }
-    if (
-      phoneNumber &&
-      (value.includes(phoneNumber) || value.includes(fullPhoneNumber))
-    ) {
-      errors.push("not contain your phone number.");
-    }
-
-    return errors.length === 0 ? true : `Password must ${errors.join(", ")}`;
   };
 
   // Check if password matches
@@ -209,12 +184,24 @@ export default function SignUp() {
     setPassword(password);
 
     const validation = validatePassword(password);
+
+    const nameParts = name?.split(/\s+/) || [];
+    const containsNamePart = nameParts.some(
+      (part) => part && password.toLowerCase().includes(part.toLowerCase())
+    );
+
     setValidations({
       letter: /[a-z]/.test(password),
       capital: /[A-Z]/.test(password),
       number: /[0-9]/.test(password),
       specialChar: /[!@#$%^&*(),.?":{}|<>]/.test(password),
-      length: password.length >= 10,
+      length: password.length >= 8,
+      name: containsNamePart,
+      userName:
+        userName && password.toLowerCase().includes(userName.toLowerCase()),
+      phoneNumber:
+        phoneNumber &&
+        (password.includes(phoneNumber) || password.includes(fullPhoneNumber)),
       match:
         password !== "" &&
         confirmPassword !== "" &&
@@ -277,13 +264,15 @@ export default function SignUp() {
             control={control}
             rules={{
               required: "Name is required",
-              pattern: {
-                value: regName,
-                message: "Name must contain characters only",
-              },
-              minLength: {
-                value: 8,
-                message: "Name must be at least 8 characters long",
+              validate: (value) => {
+                if (!regName.test(value)) {
+                  return "Name must contain characters only";
+                }
+
+                if (value.length < 8) {
+                  return "Name must be at least 8 characters long";
+                }
+                return true;
               },
               maxLength: {
                 value: 50,
@@ -430,47 +419,52 @@ export default function SignUp() {
         </Stack>
 
         <Stack direction={"row"} gap={2}>
-          {/* Country Selection */}
-          <FormControl fullWidth variant="filled">
-            <InputLabel id="country-select-label">Select Country</InputLabel>
-            <Select
-              labelId="country-select-label"
-              value={selectedCountry}
-              onChange={handleCountryChange}
-              label="Select Country"
-            >
-              {countries.map((country) => (
-                <MenuItem key={country.country} value={country.country}>
-                  {country.country}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+      <Controller
+        name="country"
+        control={control}
+        render={({ field }) => (
+          <Autocomplete
+            {...field}
+            fullWidth
+            options={countries}
+            getOptionLabel={(option) => option.label}
+            renderInput={(params) => (
+              <TextField {...params} variant="filled" label="Select Country" />
+            )}
+            onChange={(_, value) => {
+              const countryLabel = value ? value.label : null; // Extract the label
+              field.onChange(countryLabel); // Send only the label to the form
+              setSelectedCountry(value); // Update state with the entire object
+            }}
+            value={countries.find(option => option.label === watch("country")) || null} // Ensure correct value is displayed
+          />
+        )}
+      />
 
-          {/* City Selection */}
-          <FormControl fullWidth variant="filled" disabled={!selectedCountry}>
-            <InputLabel id="city-select-label">Select City</InputLabel>
-            <Select
-              labelId="city-select-label"
-              value={selectedCity}
-              onChange={handleCityChange}
-              label="Select City"
-            >
-              {cities.map((city, index) => (
-                <MenuItem key={index} value={city}>
-                  {city}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-
-          {loading && (
-            <Box display="flex" justifyContent="center" alignItems="center">
-              <CircularProgress />
-            </Box>
-          )}
-        </Stack>
-
+      <Controller
+        name="city"
+        control={control}
+        render={({ field }) => (
+          <Autocomplete
+            {...field}
+            fullWidth
+            options={states}
+            getOptionLabel={(option) => option.label}
+            renderInput={(params) => (
+              <TextField {...params} variant="filled" label="Select State" />
+            )}
+            onChange={(_, value) => {
+              const stateLabel = value ? value.label : null; // Extract the label
+              field.onChange(stateLabel); // Send only the label to the form
+              setSelectedState(value); // Update state with the entire object
+            }}
+            value={states.find(option => option.label === watch("state")) || null} // Ensure correct value is displayed
+            disabled={!selectedCountry} // Disable the state field if no country is selected
+          />
+        )}
+      />
+    </Stack>
+        
         {/* Phone */}
         <Stack direction={"row"} gap={2}>
           <TextField
@@ -517,7 +511,7 @@ export default function SignUp() {
                 {...field}
                 variant="filled"
                 sx={{ flex: 1 }}
-                type={password}
+                type="password"
                 label="Password"
                 placeholder="Enter your password"
                 error={Boolean(errors.password)}
@@ -541,9 +535,8 @@ export default function SignUp() {
                 {...field}
                 variant="filled"
                 sx={{ flex: 1 }}
-                type={password}
+                type="password"
                 label="Confirm Password"
-                placeholder="Confirm your password"
                 error={Boolean(errors.confirmPassword)}
                 onChange={(e) => {
                   handleConfirmPasswordChange(e);
@@ -600,14 +593,38 @@ export default function SignUp() {
               color={validations.length ? "green" : "red"}
               sx={{ fontSize: "13px" }}
             >
-              {validations.length ? "✔" : "✖"} Minimum 10 characters
+              {validations.length ? "✔" : "✖"} Minimum 8 characters
             </Typography>
+
+            <Typography
+              variant="body2"
+              color={validations.name ? "red" : "green"}
+              sx={{ fontSize: "13px" }}
+            >
+              {validations.name ? "✖" : "✔"} not contain any part of your Name
+            </Typography>
+            <Typography
+              variant="body2"
+              color={validations.userName ? "red" : "green"}
+              sx={{ fontSize: "13px" }}
+            >
+              {validations.userName ? "✖" : "✔"} not contain your userName
+            </Typography>
+
+            <Typography
+              variant="body2"
+              color={validations.phoneNumber ? "red" : "green"}
+              sx={{ fontSize: "13px" }}
+            >
+              {validations.phoneNumber ? "✖" : "✔"} not contain your phoneNumber
+            </Typography>
+
             <Typography
               variant="body2"
               color={validations.match ? "green" : "red"}
               sx={{ fontSize: "13px" }}
             >
-              {validations.match ? "✔" : "✖"} Passwords match
+              {validations.match ? "✔" : "✖"} Password matches
             </Typography>
           </Box>
         )}
