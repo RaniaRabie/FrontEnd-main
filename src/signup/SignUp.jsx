@@ -14,13 +14,6 @@ import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
 import { useForm, Controller } from "react-hook-form";
 import "./SignUp.css";
-import "react-toastify/dist/ReactToastify.css";
-
-// Show JSON data in console
-axios.interceptors.request.use((request) => {
-  console.log("Starting Request", JSON.stringify(request.data, null, 2));
-  return request;
-});
 
 const regName = /^[A-Za-z\s]+$/; // Only letters and spaces are allowed
 const regUserName = /^[a-zA-Z]{3}[a-zA-Z0-9_\s]*$/; // Only letters, numbers, underscore are allowed
@@ -36,6 +29,31 @@ const role = [
 export default function SignUp() {
   const [open, setOpen] = useState(false);
 
+  // Show JSON data in console
+  axios.interceptors.request.use((request) => {
+    console.log("Starting Request", JSON.stringify(request.data, null, 2));
+    return request;
+  });
+
+  const onSubmit = async (data) => {
+    const phoneNumberWithPrefix = `+20${data.phoneNumber}`;
+    const finalData = {
+      ...data,
+      phoneNumber: phoneNumberWithPrefix, // Update the phone number with the prefix
+    };
+    // api call
+    try {
+      const response = await axios.post(
+        "http://careerguidance.runasp.net/Auth/SignUp",
+        finalData
+      );
+      console.log("Submitted Data: ", response.data);
+      handleClick(); // Show success Snackbar
+    } catch (error) {
+      console.error("Error during API call: ", error);
+    }
+  };
+
   // ---------- country, state api --------------
   const [countries, setCountries] = useState([]);
   const [states, setStates] = useState([]);
@@ -48,7 +66,9 @@ export default function SignUp() {
   useEffect(() => {
     const fetchCountries = async () => {
       try {
-        const response = await axios.get("https://countriesnow.space/api/v0.1/countries");
+        const response = await axios.get(
+          "https://countriesnow.space/api/v0.1/countries"
+        );
         const countryOptions = response.data.data
           .map((country) => ({
             value: country.iso2,
@@ -96,7 +116,7 @@ export default function SignUp() {
     }
   }, [selectedCountry, setValue]);
   // ---------- end of country, state api ----------
-  
+
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [validations, setValidations] = useState({
@@ -130,25 +150,6 @@ export default function SignUp() {
     watch,
     formState: { errors },
   } = useForm({ mode: "onChange" });
-
-  const onSubmit = async (data) => {
-    const phoneNumberWithPrefix = `+20${data.phoneNumber}`;
-    const finalData = {
-      ...data,
-      phoneNumber: phoneNumberWithPrefix, // Update the phone number with the prefix
-    };
-
-    try {
-      const response = await axios.post(
-        "http://careerguidance.runasp.net/Auth/SignUp",
-        finalData
-      );
-      console.log("Submitted Data: ", response.data);
-      handleClick(); // Show success Snackbar
-    } catch (error) {
-      console.error("Error during API call: ", error);
-    }
-  };
 
   const name = watch("name");
   const userName = watch("userName");
@@ -419,52 +420,67 @@ export default function SignUp() {
         </Stack>
 
         <Stack direction={"row"} gap={2}>
-      <Controller
-        name="country"
-        control={control}
-        render={({ field }) => (
-          <Autocomplete
-            {...field}
-            fullWidth
-            options={countries}
-            getOptionLabel={(option) => option.label}
-            renderInput={(params) => (
-              <TextField {...params} variant="filled" label="Select Country" />
+          <Controller
+            name="country"
+            control={control}
+            render={({ field }) => (
+              <Autocomplete
+                {...field}
+                fullWidth
+                options={countries}
+                getOptionLabel={(option) => option.label}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    variant="filled"
+                    label="Select Country"
+                  />
+                )}
+                onChange={(_, value) => {
+                  const countryLabel = value ? value.label : null; // Extract the label
+                  field.onChange(countryLabel); // Send only the label to the form
+                  setSelectedCountry(value); // Update state with the entire object
+                }}
+                value={
+                  countries.find(
+                    (option) => option.label === watch("country")
+                  ) || null
+                } // Ensure correct value is displayed
+              />
             )}
-            onChange={(_, value) => {
-              const countryLabel = value ? value.label : null; // Extract the label
-              field.onChange(countryLabel); // Send only the label to the form
-              setSelectedCountry(value); // Update state with the entire object
-            }}
-            value={countries.find(option => option.label === watch("country")) || null} // Ensure correct value is displayed
           />
-        )}
-      />
 
-      <Controller
-        name="city"
-        control={control}
-        render={({ field }) => (
-          <Autocomplete
-            {...field}
-            fullWidth
-            options={states}
-            getOptionLabel={(option) => option.label}
-            renderInput={(params) => (
-              <TextField {...params} variant="filled" label="Select State" />
+          <Controller
+            name="state"
+            control={control}
+            render={({ field }) => (
+              <Autocomplete
+                {...field}
+                fullWidth
+                options={states}
+                getOptionLabel={(option) => option.label}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    variant="filled"
+                    label="Select State"
+                  />
+                )}
+                onChange={(_, value) => {
+                  const stateLabel = value ? value.label : null; // Extract the label
+                  field.onChange(stateLabel); // Send only the label to the form
+                  setSelectedState(value); // Update state with the entire object
+                }}
+                value={
+                  states.find((option) => option.label === watch("state")) ||
+                  null
+                } // Ensure correct value is displayed
+                disabled={!selectedCountry} // Disable the state field if no country is selected
+              />
             )}
-            onChange={(_, value) => {
-              const stateLabel = value ? value.label : null; // Extract the label
-              field.onChange(stateLabel); // Send only the label to the form
-              setSelectedState(value); // Update state with the entire object
-            }}
-            value={states.find(option => option.label === watch("state")) || null} // Ensure correct value is displayed
-            disabled={!selectedCountry} // Disable the state field if no country is selected
           />
-        )}
-      />
-    </Stack>
-        
+        </Stack>
+
         {/* Phone */}
         <Stack direction={"row"} gap={2}>
           <TextField
@@ -598,25 +614,27 @@ export default function SignUp() {
 
             <Typography
               variant="body2"
-              color={validations.name ? "red" : "green"}
-              sx={{ fontSize: "13px" }}
+              color={!name || validations.name ? "red" : "green"}
+              sx={{ fontSize: "13px" }} 
             >
-              {validations.name ? "✖" : "✔"} not contain any part of your Name
-            </Typography>
-            <Typography
-              variant="body2"
-              color={validations.userName ? "red" : "green"}
-              sx={{ fontSize: "13px" }}
-            >
-              {validations.userName ? "✖" : "✔"} not contain your userName
+              {!name || validations.name ? "✖" : "✔"} not contain any part of
+              your Name
             </Typography>
 
             <Typography
               variant="body2"
-              color={validations.phoneNumber ? "red" : "green"}
+              color={!userName|| validations.userName ? "red" : "green"}
               sx={{ fontSize: "13px" }}
             >
-              {validations.phoneNumber ? "✖" : "✔"} not contain your phoneNumber
+              {!userName|| validations.userName ? "✖" : "✔"} not contain your userName
+            </Typography>
+
+            <Typography
+              variant="body2"
+              color= {!phoneNumber || validations.phoneNumber ? "red" : "green"}
+              sx={{ fontSize: "13px" }}
+            >
+              {!phoneNumber ||validations.phoneNumber ? "✖" : "✔"} not contain your phoneNumber
             </Typography>
 
             <Typography

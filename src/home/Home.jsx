@@ -346,6 +346,8 @@ export default function Home() {
                       fullWidth
                       margin="normal"
                       required
+                      onFocus={() => setShowValidation(true)}
+                      onBlur={() => setShowValidation(true)}
                     >
                       <TextField
                         variant="filled"
