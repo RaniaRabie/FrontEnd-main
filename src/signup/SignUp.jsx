@@ -50,7 +50,7 @@ export default function SignUp() {
       console.log("Submitted Data: ", response.data);
       handleClick(); // Show success Snackbar
     } catch (error) {
-      console.error("Error during API call: ", error);
+      console.log("Error during API call: ", error);
     }
   };
 
@@ -155,6 +155,7 @@ export default function SignUp() {
   const userName = watch("userName");
   const phoneNumber = watch("phoneNumber");
   const fullPhoneNumber = `+20${phoneNumber}`; // Concatenate prefix with the phone number
+  const phoneNumberWithZero = `0${phoneNumber}`; // Concatenate 0 with the phone number
 
   // Password Validation Function
   const validatePassword = (value) => {
@@ -202,7 +203,9 @@ export default function SignUp() {
         userName && password.toLowerCase().includes(userName.toLowerCase()),
       phoneNumber:
         phoneNumber &&
-        (password.includes(phoneNumber) || password.includes(fullPhoneNumber)),
+        (password.includes(phoneNumber) ||
+          password.includes(fullPhoneNumber) ||
+          password.includes(phoneNumberWithZero)),
       match:
         password !== "" &&
         confirmPassword !== "" &&
@@ -226,6 +229,8 @@ export default function SignUp() {
 
     setShowValidation(true);
   };
+
+
 
   return (
     <div className="container">
@@ -451,7 +456,7 @@ export default function SignUp() {
           />
 
           <Controller
-            name="state"
+            name="city"
             control={control}
             render={({ field }) => (
               <Autocomplete
@@ -535,7 +540,10 @@ export default function SignUp() {
                   handlePasswordChange(e);
                   field.onChange(e);
                 }}
+                
+                
               />
+              
             )}
           />
 
@@ -615,7 +623,7 @@ export default function SignUp() {
             <Typography
               variant="body2"
               color={!name || validations.name ? "red" : "green"}
-              sx={{ fontSize: "13px" }} 
+              sx={{ fontSize: "13px" }}
             >
               {!name || validations.name ? "✖" : "✔"} not contain any part of
               your Name
@@ -623,18 +631,20 @@ export default function SignUp() {
 
             <Typography
               variant="body2"
-              color={!userName|| validations.userName ? "red" : "green"}
+              color={!userName || validations.userName ? "red" : "green"}
               sx={{ fontSize: "13px" }}
             >
-              {!userName|| validations.userName ? "✖" : "✔"} not contain your userName
+              {!userName || validations.userName ? "✖" : "✔"} not contain your
+              userName
             </Typography>
 
             <Typography
               variant="body2"
-              color= {!phoneNumber || validations.phoneNumber ? "red" : "green"}
+              color={!phoneNumber || validations.phoneNumber ? "red" : "green"}
               sx={{ fontSize: "13px" }}
             >
-              {!phoneNumber ||validations.phoneNumber ? "✖" : "✔"} not contain your phoneNumber
+              {!phoneNumber || validations.phoneNumber ? "✖" : "✔"} not contain
+              your phoneNumber
             </Typography>
 
             <Typography
